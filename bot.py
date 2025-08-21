@@ -11,10 +11,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Bot configuration with your specific details
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '7317949191:AAGupvYPiLzNSq3TbYG1UljcOZ2XohibHSs')
-CHANNEL_USERNAME = os.environ.get('CHANNEL_USERNAME', 'Yakstaschannel')
-GROUP_USERNAME = os.environ.get('GROUP_USERNAME', 'yakstascapital')
-TWITTER_USERNAME = os.environ.get('TWITTER_USERNAME', 'bigbangdist10')
+BOT_TOKEN = '7317949191:AAGupvYPiLzNSq3TbYG1UljcOZ2XohibHSs'
+CHANNEL_USERNAME = 'Yakstaschannel'
+GROUP_USERNAME = 'yakstascapital'
+TWITTER_USERNAME = 'bigbangdist10'
 
 # Store user progress
 user_data = {}
@@ -126,11 +126,10 @@ def main():
     dp.add_error_handler(error)
     
     # Start the Bot
+    print("Starting bot...")
     updater.start_polling()
     
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
+    # Run the bot until you press Ctrl-C
     updater.idle()
 
 if __name__ == '__main__':
