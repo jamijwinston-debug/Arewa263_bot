@@ -1,12 +1,7 @@
-from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import logging
 import os
-import asyncio
-
-# Initialize Flask app
-app = Flask(__name__)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
 # Set up logging
 logging.basicConfig(
@@ -25,7 +20,7 @@ TWITTER_USERNAME = os.environ.get('TWITTER_USERNAME', 'bigbangdist10')
 user_data = {}
 
 # Start command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     user_data[user_id] = {'state': 'join_channel'}
     
@@ -35,7 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(
+    update.message.reply_text(
         "Welcome to Mr. Kayblezzy2 Airdrop! 🚀\n\n"
         "To qualify for the airdrop, complete these tasks:\n\n"
         "1. Join our channel\n"
@@ -47,9 +42,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # Handle channel join callback
-async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def handle_callback(update: Update, context: CallbackContext):
     query = update.callback_query
-    await query.answer()
+    query.answer()
     user_id = query.from_user.id
     
     if query.data == "joined_channel":
@@ -60,7 +55,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
+        query.edit_message_text(
             "Great! Now join our group:",
             reply_markup=reply_markup
         )
@@ -73,19 +68,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
+        query.edit_message_text(
             "Awesome! Now follow our Twitter:",
             reply_markup=reply_markup
         )
     
     elif query.data == "followed_twitter":
         user_data[user_id]['state'] = 'submit_wallet'
-        await query.edit_message_text(
+        query.edit_message_text(
             "Perfect! Now send me your Solana wallet address to complete the qualification."
         )
 
 # Handle wallet submission
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def handle_message(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     user_state = user_data.get(user_id, {}).get('state')
     
@@ -93,46 +88,50 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Simple validation for Solana wallet (basic format check)
         wallet_address = update.message.text.strip()
         
-        # Basic Solana address validation (44 characters, base58)
+        # Basic Solana address validation (32-44 characters)
         if len(wallet_address) >= 32 and len(wallet_address) <= 44:
             user_data[user_id]['state'] = 'completed'
             user_data[user_id]['wallet'] = wallet_address
             
-            await update.message.reply_text(
+            update.message.reply_text(
                 "🎉 Congratulations! You've qualified for Mr. Kayblezzy2's airdrop!\n\n"
                 "Well done, hope you didn't cheat the system. 😉\n"
                 "10 SOL is on its way to your address!\n\n"
                 "Thank you for participating!"
             )
         else:
-            await update.message.reply_text(
+            update.message.reply_text(
                 "That doesn't look like a valid Solana wallet address. "
                 "Please check and submit again."
             )
 
-# Set up Telegram application
-def setup_bot():
-    application = Application.builder().token(BOT_TOKEN).build()
+# Error handler
+def error(update: Update, context: CallbackContext):
+    logger.warning('Update "%s" caused error "%s"', update, context.error)
+
+# Main function
+def main():
+    # Create the Updater and pass it your bot's token
+    updater = Updater(BOT_TOKEN, use_context=True)
+    
+    # Get the dispatcher to register handlers
+    dp = updater.dispatcher
     
     # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(handle_callback))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CallbackQueryHandler(handle_callback))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     
-    return application
+    # Log all errors
+    dp.add_error_handler(error)
+    
+    # Start the Bot
+    updater.start_polling()
+    
+    # Run the bot until you press Ctrl-C or the process receives SIGINT,
+    # SIGTERM or SIGABRT. This should be used most of the time, since
+    # start_polling() is non-blocking and will stop the bot gracefully.
+    updater.idle()
 
-# Flask routes
-@app.route('/')
-def home():
-    return "Mr. Kayblezzy2 Airdrop Bot is running!"
-
-# Run the application
 if __name__ == '__main__':
-    # For development
-    bot_application = setup_bot()
-    
-    # Start the bot in polling mode
-    print("Starting bot in polling mode...")
-    
-    # Run the bot
-    bot_application.run_polling()
+    main()
