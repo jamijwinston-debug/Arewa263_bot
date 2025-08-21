@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import logging
 import os
+import asyncio
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -14,32 +15,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Bot configuration
+# Bot configuration with your specific details
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '7317949191:AAGupvYPiLzNSq3TbYG1UljcOZ2XohibHSs')
-CHANNEL_USERNAME = os.environ.get('CHANNEL_USERNAME', '@Yakstaschannel')
-GROUP_USERNAME = os.environ.get('GROUP_USERNAME', '@yakstascapital')
-TWITTER_USERNAME = os.environ.get('TWITTER_USERNAME', '@bigbangdist10')
+CHANNEL_USERNAME = os.environ.get('CHANNEL_USERNAME', 'Yakstaschannel')
+GROUP_USERNAME = os.environ.get('GROUP_USERNAME', 'yakstascapital')
+TWITTER_USERNAME = os.environ.get('TWITTER_USERNAME', 'bigbangdist10')
 
-# Store user progress (in production, use a database)
+# Store user progress
 user_data = {}
-
-# Define conversation states
-(
-    START,
-    JOIN_CHANNEL,
-    JOIN_GROUP,
-    FOLLOW_TWITTER,
-    SUBMIT_WALLET,
-    COMPLETED
-) = range(6)
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_data[user_id] = {'state': JOIN_CHANNEL}
+    user_data[user_id] = {'state': 'join_channel'}
     
     keyboard = [
-        [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+        [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
         [InlineKeyboardButton("I've Joined", callback_data="joined_channel")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -62,9 +53,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     
     if query.data == "joined_channel":
-        user_data[user_id]['state'] = JOIN_GROUP
+        user_data[user_id]['state'] = 'join_group'
         keyboard = [
-            [InlineKeyboardButton("Join Group", url=f"https://t.me/{GROUP_USERNAME[1:]}")],
+            [InlineKeyboardButton("Join Group", url=f"https://t.me/{GROUP_USERNAME}")],
             [InlineKeyboardButton("I've Joined", callback_data="joined_group")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -75,9 +66,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     elif query.data == "joined_group":
-        user_data[user_id]['state'] = FOLLOW_TWITTER
+        user_data[user_id]['state'] = 'follow_twitter'
         keyboard = [
-            [InlineKeyboardButton("Follow Twitter", url=f"https://twitter.com/{TWITTER_USERNAME[1:]}")],
+            [InlineKeyboardButton("Follow Twitter", url=f"https://twitter.com/{TWITTER_USERNAME}")],
             [InlineKeyboardButton("I'm Following", callback_data="followed_twitter")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -88,7 +79,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     elif query.data == "followed_twitter":
-        user_data[user_id]['state'] = SUBMIT_WALLET
+        user_data[user_id]['state'] = 'submit_wallet'
         await query.edit_message_text(
             "Perfect! Now send me your Solana wallet address to complete the qualification."
         )
@@ -98,12 +89,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_state = user_data.get(user_id, {}).get('state')
     
-    if user_state == SUBMIT_WALLET:
+    if user_state == 'submit_wallet':
         # Simple validation for Solana wallet (basic format check)
         wallet_address = update.message.text.strip()
         
+        # Basic Solana address validation (44 characters, base58)
         if len(wallet_address) >= 32 and len(wallet_address) <= 44:
-            user_data[user_id]['state'] = COMPLETED
+            user_data[user_id]['state'] = 'completed'
             user_data[user_id]['wallet'] = wallet_address
             
             await update.message.reply_text(
@@ -134,17 +126,13 @@ def setup_bot():
 def home():
     return "Mr. Kayblezzy2 Airdrop Bot is running!"
 
-@app.route('/setwebhook', methods=['GET', 'POST'])
-def set_webhook():
-    # In production, you would set up a webhook here
-    return "Webhook would be set up in production environment"
-
 # Run the application
 if __name__ == '__main__':
     # For development
     bot_application = setup_bot()
     
-    # Start the bot in polling mode (for development)
-    # In production, you would use webhooks instead
+    # Start the bot in polling mode
     print("Starting bot in polling mode...")
+    
+    # Run the bot
     bot_application.run_polling()
